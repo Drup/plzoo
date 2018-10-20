@@ -7,7 +7,7 @@ module HM = Zoo.Main (struct
     let options = []
 
     type environment = {
-      ty : Type.Env.env ;
+      ty : Typing.scheme Type.Env.env ;
       name: Syntax.Rename.env ;
       value: Eval.env ;
     }
@@ -34,11 +34,18 @@ module HM = Zoo.Main (struct
       let c = Syntax.Rename.command env.name c in
       match c with
       | Syntax.Def (x, e) ->
-        let ty = Typing.infer_top env.ty e in
+        let scheme =
+          try Typing.infer_top env.ty e
+          with
+          | Typing.Unif.Fail (ty1, ty2) ->
+            Zoo.error ~kind:"Type error"
+              "Cannot unify types %a and %a@."
+              Printer.typ ty1 Printer.typ ty2
+        in 
         let v = Eval.execute env.value e in
         Zoo.print_info "@[<2>%a@ : @[%a@]@ = @[%a@]@."
-          Printer.name x  Printer.typ ty  Printer.value v ;
-        add_def x ty v env
+          Printer.name x  Printer.scheme scheme  Printer.value v ;
+        add_def x scheme v env
   end)
 
 let () = HM.main ()

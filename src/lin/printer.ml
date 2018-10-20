@@ -86,6 +86,15 @@ and typ_with_paren fmt x =
   Format.fprintf fmt
     (if must_have_paren then "@[(%a@])" else "%a") typ x
 
+and constr fmt = function
+  | Constraint.True -> Format.fprintf fmt "true"
+  | Constraint.And l ->
+    let pp_sep fmt () = Format.fprintf fmt " &@ " in
+    Format.fprintf fmt "%a" Format.(pp_print_list ~pp_sep constr) l
+
+and scheme fmt { Typing.constr = c ; ty } =
+  Format.fprintf fmt "%a => %a" constr c typ ty
+
 let typ_env fmt env =
   let print_env fmt e =
     Format.pp_print_list
