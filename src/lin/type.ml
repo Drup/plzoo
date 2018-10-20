@@ -2,6 +2,18 @@ open Syntax
 
 type level = int
 
+
+and kind =
+  | Un
+  | Lin
+  | KGenericVar : Name.t -> kind
+  | KVar : kvar ref -> kind
+
+and kvar =
+  | KUnbound of Name.t * level
+  | KLink of kind
+
+
 type t =
   | Const : Name.t -> t
   | App : t * t -> t
@@ -16,20 +28,8 @@ and var =
 type constr =
   | True
   | Eq of t * t
+  | KindLeq of kind * kind
   | And of constr list
-
-module Env = struct
-  module M = NameMap
-  exception Var_not_found of Name.t
-  type 'a env = 'a M.t
-  let add k v env = M.add k v env
-
-  let find k env =
-    try M.find k env with
-      Not_found -> raise (Var_not_found k)
-
-  let empty = M.empty
-end
 
 (** Predefined types *)
 

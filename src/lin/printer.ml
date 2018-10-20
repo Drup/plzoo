@@ -86,8 +86,20 @@ and typ_with_paren fmt x =
   Format.fprintf fmt
     (if must_have_paren then "@[(%a@])" else "%a") typ x
 
+let rec kvar
+  = fun fmt -> function
+  | T.KUnbound (n,_) -> Format.fprintf fmt "'_%a" name n
+  | T.KLink t -> kind fmt t
+
+and kind fmt = function
+  | T.Un -> Format.fprintf fmt "un"
+  | T.Lin -> Format.fprintf fmt "lin"
+  | T.KVar { contents = x } -> kvar fmt x
+  | T.KGenericVar n -> Format.fprintf fmt "'%a" name n
+
 and constr fmt = function
   | Constraint.True -> Format.fprintf fmt "true"
+  | Constraint.KindLeq (k1, k2) -> Format.fprintf fmt "(%a < %a)" kind k1 kind k2
   | Constraint.And l ->
     let pp_sep fmt () = Format.fprintf fmt " &@ " in
     Format.fprintf fmt "%a" Format.(pp_print_list ~pp_sep constr) l
