@@ -9,6 +9,7 @@ let constant fmt = function
   | NewRef -> bold fmt "new"
   | Get -> bold fmt "!"
   | Set -> bold fmt ":="
+  | Y -> bold fmt "Y" 
 
 let indice_array = [|"₀";"₁";"₂";"₃";"₄";"₅";"₆";"₇";"₈";"₉"|]
 let rec digits fmt i =
@@ -39,7 +40,6 @@ let rec value
         bold "->"
         expr e
     | Ref { contents } -> Format.fprintf fmt "{%a}" value contents
-    | Y -> Format.fprintf fmt "Y"
 
 and expr
   = fun fmt -> function

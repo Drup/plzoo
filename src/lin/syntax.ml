@@ -17,12 +17,12 @@ type constant =
   | NewRef
   | Get
   | Set
+  | Y
 
 type value =
   | Constant of constant
   | Lambda of Name.t * expr
   | Ref of value ref
-  | Y
 
 and expr =
   | V of value
@@ -56,7 +56,7 @@ module Rename = struct
       let env = add name new_name env in
       let e = expr env e in
       Lambda (new_name, e)
-    | Constant _ | Y | Ref _ as e-> e
+    | Constant _ | Ref _ as e-> e
 
   and expr env = function
     | V v -> V (value env v)

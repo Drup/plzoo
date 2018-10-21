@@ -17,8 +17,7 @@ let rec subst_value x v = function
   | Constant c -> Constant c
   | Lambda (y,e) when not @@ Name.equal x y ->
     (Lambda (y, subst x v e))
-  | Lambda (_, _) 
-  | Y 
+  | Lambda (_, _)
   | Ref _
     as v -> v
 
@@ -37,6 +36,8 @@ let subst_env = NameMap.fold subst
 
 (** Evaluation *)
 
+let value x = V x
+let lambda n b = V (Lambda (n, b))
 let const x = V (Constant x)
 let delta c v = match c,v with
   | Int _, [] -> None
@@ -53,6 +54,11 @@ let delta c v = match c,v with
     let n = Name.create ~name:"r" () in
     Some (V (Lambda (n, App (const Set, [V (Ref r); Var n]))))
   | Set, [ Ref r ; v ] -> r := v ; Some (V v)
+      
+  | Y, ve::t ->
+    let n = Name.create ~name:"Y" () in
+    let args = List.map value t in
+    Some (App (V ve, lambda n (App(const Y, [V ve; Var n])) :: args))
     
   | _ -> None
 
@@ -85,9 +91,6 @@ let rec eval i e = match e with
 and eval_app i eorig f l = match f, l with
   | _, [] -> f
   | Ref _, _ -> reduction_failure eorig
-  | Y, ve::t ->
-    let n = Name.create ~name:"Y" () in
-    eval_app i eorig ve (Lambda(n, App(V Y, [V ve; Var n])) :: t)
   | Lambda(x, body), (v :: t) ->
     eval_app i eorig (eval (i+1) @@ subst x v body) t
   | Constant c, l ->

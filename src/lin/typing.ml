@@ -379,6 +379,9 @@ let constant = let open T in function
   | Set ->
     let name, a = new_gen_var () in
     tyscheme ~tyvars:[name, Un] ( (ref a) @-> a @-> a )
+  | Y ->
+    let name, a = new_gen_var () in
+    tyscheme ~tyvars:[name, Un] T.((a @-> a) @-> a)
 
 
 let with_binding env x ty f =
@@ -396,11 +399,6 @@ let with_type ?name ~env ~level f =
 let rec infer_value (env : Env.t) level = function
   | Constant c ->
     instantiate level env @@ constant c
-  | Y ->
-    let y_name = Name.create ~name:"a" () in
-    let n = T.GenericVar y_name in
-    let ty = tyscheme ~tyvars:[y_name, Un] T.((n @-> n) @-> n) in
-    instantiate level env ty
   | Lambda(param, body_expr) ->
     with_type ~name:param.name ~env ~level @@ fun env param_ty ->
     let param_scheme = tyscheme param_ty in

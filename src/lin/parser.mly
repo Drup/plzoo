@@ -47,7 +47,6 @@ list_expr:
 value:
   | FUN name=name RIGHTARROW e=expr { Lambda (name, e) }
   | c=constant { Constant c }
-  | YTOK { Y }
 
 constant:
   | i=INT { Int i }
@@ -55,6 +54,7 @@ constant:
   | REF { NewRef }
   | BANG { Get }
   | COLONEQUAL { Set }
+  | YTOK { Y }
 
 name:
   | name=IDENT { Name.dummy name }
