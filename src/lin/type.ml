@@ -16,7 +16,7 @@ and kvar =
 
 type t =
   | Const : Name.t -> t
-  | App : t * t -> t
+  | App : Name.t * t list -> t
   | Arrow : t * t -> t
   | GenericVar : Name.t -> t
   | Var : var ref -> t

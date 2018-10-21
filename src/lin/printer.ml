@@ -24,6 +24,11 @@ let rec digits fmt i =
 let name fmt {Name. name ; id } =
   Format.fprintf fmt "%s%a" name  digits id
 
+let tyname ?(unbound=false) fmt n =
+  Format.fprintf fmt "'%s%a" (if unbound then "_" else "") name n
+let kname ?(unbound=false) fmt n =
+  Format.fprintf fmt "^%s%a" (if unbound then "_" else "") name n
+
 let rec value
   = fun fmt -> function
     | Constant c -> constant fmt c
@@ -67,16 +72,19 @@ let rec typ_need_paren = function
 
 let rec tyvar
   = fun fmt -> function
-  | T.Unbound (n,_) -> Format.fprintf fmt "'_%a" name n
+  | T.Unbound (n,_) -> tyname ~unbound:true fmt n
   | T.Link t -> typ_with_paren fmt t
 
 and typ
   = fun fmt -> function
   | T.Const n -> name fmt n
-  | T.App (f,e) -> Format.fprintf fmt "@[<2>%a@ %a@]" typ_with_paren e  typ f
+  | T.App (f,e) ->
+    let pp_sep fmt () = Format.fprintf fmt ",@ " in
+    Format.fprintf fmt "@[<2>(%a)@ %a@]"
+      (Format.pp_print_list ~pp_sep typ) e  name f
   | T.Arrow (a,b) -> Format.fprintf fmt "%a -> %a" typ_with_paren a  typ b
   | T.Var { contents = x } -> tyvar fmt x
-  | T.GenericVar n -> Format.fprintf fmt "'%a" name n
+  | T.GenericVar n -> tyname fmt n
 
 and typ_with_paren fmt x =
   let must_have_paren = match x with
@@ -88,14 +96,14 @@ and typ_with_paren fmt x =
 
 let rec kvar
   = fun fmt -> function
-  | T.KUnbound (n,_) -> Format.fprintf fmt "'_%a" name n
+  | T.KUnbound (n,_) -> kname ~unbound:true fmt n
   | T.KLink t -> kind fmt t
 
 and kind fmt = function
   | T.Un -> Format.fprintf fmt "un"
   | T.Lin -> Format.fprintf fmt "lin"
   | T.KVar { contents = x } -> kvar fmt x
-  | T.KGenericVar n -> Format.fprintf fmt "'%a" name n
+  | T.KGenericVar n -> kname fmt n
 
 and constr fmt = function
   | Constraint.True -> Format.fprintf fmt "true"
@@ -104,16 +112,54 @@ and constr fmt = function
     let pp_sep fmt () = Format.fprintf fmt " &@ " in
     Format.fprintf fmt "%a" Format.(pp_print_list ~pp_sep constr) l
 
-and scheme fmt { Typing.constr = c ; ty } =
-  Format.fprintf fmt "%a => %a" constr c typ ty
+and kscheme fmt { Typing.constr = c ; kvars ; args ; kind = k } =
+  let pp_sep fmt () = Format.fprintf fmt "," in
+  let pp_arg fmt k = Format.fprintf fmt "%a ->@ " kind k in
+  Format.pp_open_box fmt 2 ;
+  begin
+    if kvars <> [] then
+      Format.fprintf fmt "∀%a. "
+        Format.(pp_print_list ~pp_sep name) kvars
+  end;
+  begin
+    if c <> Constraint.True then
+      Format.fprintf fmt "%a =>" constr c
+  end;
+  Format.fprintf fmt "%a%a"
+    Format.(pp_print_list ~pp_sep pp_arg) args
+    kind k ;
+  Format.pp_close_box fmt ();
+  ()
 
-let typ_env fmt env =
-  let print_env fmt e =
+and scheme fmt { Typing.constr = c ; tyvars ; kvars ; ty } =
+  let pp_sep fmt () = Format.fprintf fmt "," in
+  let binding fmt (ty,k) =
+    Format.fprintf fmt "(%a:%a)" (tyname ~unbound:false) ty kind k
+  in
+  Format.pp_open_box fmt 2 ;
+  begin
+    if kvars <> [] || tyvars <> [] then
+      Format.fprintf fmt "∀%a%a. "
+        Format.(pp_print_list ~pp_sep (kname ~unbound:false)) kvars
+        Format.(pp_print_list ~pp_sep binding) tyvars
+  end;
+  begin
+    if c <> Constraint.True then
+      Format.fprintf fmt "%a =>" constr c
+  end;
+  typ fmt ty;
+  Format.pp_close_box fmt ();
+  ()
+
+let env fmt env =
+  let print_env pp_key pp_val fmt e =
     Format.pp_print_list
       ~pp_sep:Format.pp_print_cut
-      (fun fmt (k,ty) -> Format.fprintf fmt "%a: %a" name k  typ ty)
+      (fun fmt (k,ty) ->
+         Format.fprintf fmt "%a: %a" pp_key k  pp_val ty)
       fmt
-    @@ T.Env.M.bindings e
+    @@ NameMap.bindings e
   in
-  Format.fprintf fmt "Server:@;<1 2>@[<v>%a@]@.Client:@;<1 2>@[<v>%a@]@."
-    print_env env
+  Format.fprintf fmt "Vars:@;<1 2>@[<v>%a@]@.Types:@;<1 2>@[<v>%a@]@."
+    (print_env name scheme) env.Typing.Env.vars
+    (print_env (tyname ~unbound:false) kscheme) env.Typing.Env.types
