@@ -34,7 +34,7 @@ module HM = Zoo.Main (struct
       let c = Syntax.Rename.command env.name c in
       match c with
       | Syntax.Def (x, e) ->
-        let types, scheme =
+        let constr, types, scheme =
           try Typing.infer_top env.ty e
           with
           | Typing.Unif.Fail (ty1, ty2) ->
@@ -48,8 +48,9 @@ module HM = Zoo.Main (struct
         in 
         let v = Eval.execute env.value e in
         let env = { env with ty = types } in
-        Zoo.print_info "@[<2>%a@ : @[%a@]@ = @[%a@]@.%a@."
+        Zoo.print_info "@[<2>%a@ : @[%a@]@ = @[%a@]@.%a@.%a@."
           Printer.name x  Printer.scheme scheme  Printer.value v
+          Printer.constr constr
           Printer.env env.ty ;
         add_def x scheme v env
   end)

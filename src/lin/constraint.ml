@@ -18,6 +18,5 @@ let rec lower = function
   | And l -> T.And (List.map lower l)
   | KindLeq (k1, k2) -> T.KindLeq (k1, k2)
 
-let (~&) = lower
 let (===) a b = T.Eq (a, b)
 let (&&&) a b = T.And [a ; b]

@@ -70,6 +70,17 @@ let rec typ_need_paren = function
   | T.Var { contents = Link t } -> typ_need_paren t
   | _ -> false
 
+let rec kvar
+  = fun fmt -> function
+  | T.KUnbound (n,_) -> kname ~unbound:true fmt n
+  | T.KLink t -> kind fmt t
+
+and kind fmt = function
+  | T.Un -> Format.fprintf fmt "un"
+  | T.Lin -> Format.fprintf fmt "lin"
+  | T.KVar { contents = x } -> kvar fmt x
+  | T.KGenericVar n -> kname fmt n
+
 let rec tyvar
   = fun fmt -> function
   | T.Unbound (n,_) -> tyname ~unbound:true fmt n
@@ -83,7 +94,8 @@ and typ
     let pp_sep fmt () = Format.fprintf fmt ",@ " in
     Format.fprintf fmt "@[<2>(%a)@ %a@]"
       (Format.pp_print_list ~pp_sep typ) e  name f
-  | T.Arrow (a,b) -> Format.fprintf fmt "%a -> %a" typ_with_paren a  typ b
+  | T.Arrow (a,Un,b) -> Format.fprintf fmt "%a -> %a" typ_with_paren a  typ b
+  | T.Arrow (a,k,b) -> Format.fprintf fmt "%a -{%a}> %a" typ_with_paren a kind k  typ b
   | T.Var { contents = x } -> tyvar fmt x
   | T.GenericVar n -> tyname fmt n
 
@@ -95,18 +107,7 @@ and typ_with_paren fmt x =
   Format.fprintf fmt
     (if must_have_paren then "@[(%a@])" else "%a") typ x
 
-let rec kvar
-  = fun fmt -> function
-  | T.KUnbound (n,_) -> kname ~unbound:true fmt n
-  | T.KLink t -> kind fmt t
-
-and kind fmt = function
-  | T.Un -> Format.fprintf fmt "un"
-  | T.Lin -> Format.fprintf fmt "lin"
-  | T.KVar { contents = x } -> kvar fmt x
-  | T.KGenericVar n -> kname fmt n
-
-and constr fmt = function
+let rec constr fmt = function
   | Constraint.True -> Format.fprintf fmt "true"
   | Constraint.KindLeq (k1, k2) -> Format.fprintf fmt "(%a < %a)" kind k1 kind k2
   | Constraint.And l ->

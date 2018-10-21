@@ -16,7 +16,7 @@ and kvar =
 
 type t =
   | App : Name.t * t list -> t
-  | Arrow : t * t -> t
+  | Arrow : t * kind * t -> t
   | GenericVar : Name.t -> t
   | Var : var ref -> t
 
@@ -32,7 +32,7 @@ type constr =
 
 (** Predefined types *)
 
-let (@->) x y = Arrow (x,y)
+let (@->) x y = Arrow (x,Un,y)
 let new_y () =
   let y_name = Name.create ~name:"a" () in
   let n = GenericVar y_name in
