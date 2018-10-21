@@ -77,7 +77,8 @@ let rec tyvar
 
 and typ
   = fun fmt -> function
-  | T.Const n -> name fmt n
+  | T.App (f,[]) ->
+    name fmt f
   | T.App (f,e) ->
     let pp_sep fmt () = Format.fprintf fmt ",@ " in
     Format.fprintf fmt "@[<2>(%a)@ %a@]"

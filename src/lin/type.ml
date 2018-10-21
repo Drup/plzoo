@@ -15,7 +15,6 @@ and kvar =
 
 
 type t =
-  | Const : Name.t -> t
   | App : Name.t * t list -> t
   | Arrow : t * t -> t
   | GenericVar : Name.t -> t
@@ -40,7 +39,7 @@ let new_y () =
   (n @-> n) @-> n
 
 let int_name = Name.create ~name:"int" ()
-let int = Const int_name
+let int : t = App (int_name, [])
 
 let ref_name = Name.create ~name:"ref" ()
-let ref = Const ref_name
+let ref x : t = App (ref_name, [x])

@@ -62,7 +62,6 @@ end
 module Instantiate = struct
 
   let rec instance_type ~level ~tbl = function
-    | T.Const _ as ty -> ty
     | T.Var {contents = Link ty} -> instance_type ~level ~tbl ty
     | T.GenericVar id ->
       begin try
@@ -195,7 +194,6 @@ module Kind = struct
 end
 
 let rec infer_kind ~level ~env = function
-  | T.Const n -> Instantiate.go_kind level @@ Env.find_ty n env
   | T.App (f, args) ->
     let constrs, args =
       List.fold_left
@@ -233,16 +231,13 @@ module Unif = struct
       | T.Arrow(param_ty, return_ty) ->
         f param_ty ;
         f return_ty
-      | T.Const _ -> ()
     in
     f ty
 
   let rec unify env ty1 ty2 = match ty1, ty2 with
     | _, _ when ty1 == ty2 -> C.True
 
-    | T.Const name1, T.Const name2 when Syntax.Name.equal name1 name2 -> C.True
-
-    | T.App(ty1, ty_arg1), T.App(ty2, ty_arg2) when ty1 = ty2 ->
+    | T.App(ty1, ty_arg1), T.App(ty2, ty_arg2) when Syntax.Name.equal ty1 ty2 ->
       C.And (List.map2 (unify env) ty_arg1 ty_arg2)        
 
     | T.Arrow(param_ty1, return_ty1), T.Arrow(param_ty2, return_ty2) ->
@@ -315,7 +310,6 @@ module Generalize = struct
     | T.Var {contents = Link ty} -> gen_ty ~level ~tyenv ty
     | ( T.GenericVar _
       | T.Var {contents = Unbound _}
-      | T.Const _
       ) as ty -> ty
 
   let rec gen_kind ~level ~kenv = function
@@ -378,13 +372,13 @@ let constant = let open T in function
   | Plus  -> tyscheme (int @-> int @-> int)
   | NewRef ->
     let name, a = new_gen_var () in
-    tyscheme ~tyvars:[name, Un] (a @-> T.App (ref_name, [a]))
+    tyscheme ~tyvars:[name, Un] (a @-> ref a)
   | Get ->
     let name, a = new_gen_var () in
-    tyscheme ~tyvars:[name, Un] ( T.App (ref_name, [a]) @-> a )
+    tyscheme ~tyvars:[name, Un] ((ref a) @-> a )
   | Set ->
     let name, a = new_gen_var () in
-    tyscheme ~tyvars:[name, Un] ( T.App (ref_name, [a]) @-> a @-> a )
+    tyscheme ~tyvars:[name, Un] ( (ref a) @-> a @-> a )
 
 
 let with_binding env x ty f =
