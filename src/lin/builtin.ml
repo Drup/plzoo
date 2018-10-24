@@ -1,0 +1,18 @@
+open Types
+
+let (@->) x y = Arrow (x,Un,y)
+let new_y () =
+  let y_name = Name.create ~name:"a" () in
+  let n = GenericVar y_name in
+  (n @-> n) @-> n
+
+let int_name = Name.create ~name:"int" ()
+let int = App (int_name, [])
+
+let ref_name = Name.create ~name:"ref" ()
+let ref x = App (ref_name, [x])
+
+let initial_env =
+  Env.empty
+  |> Env.add_ty ref_name (kscheme ~args:[Un] Un)
+  |> Env.add_ty int_name (kscheme Un)

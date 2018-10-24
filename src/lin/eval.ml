@@ -2,12 +2,12 @@ open Syntax
 
 (** Global Environment *)
 
-type env = value NameMap.t
-let initial_env = NameMap.empty
-let add = NameMap.add
+type env = value Name.Map.t
+let initial_env = Name.Map.empty
+let add = Name.Map.add
 let find x env =
-  if NameMap.mem x env then
-    NameMap.find x env
+  if Name.Map.mem x env then
+    Name.Map.find x env
   else
     Zoo.error "Unbound variable %a" Printer.name x
 
@@ -32,7 +32,7 @@ and subst x v e = match e with
   | Let (y,e1,e2) ->
     Let (y, subst x v e1, e2)
 
-let subst_env = NameMap.fold subst
+let subst_env = Name.Map.fold subst
 
 (** Evaluation *)
 

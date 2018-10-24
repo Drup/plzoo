@@ -1,5 +1,5 @@
 open Syntax
-module T = Type
+module T = Types
 
 let bold fmt s = Format.fprintf fmt "@<0>%s%s@<0>%s" "\027[1m" s "\027[0m"
 
@@ -114,7 +114,7 @@ let rec constr fmt = function
     let pp_sep fmt () = Format.fprintf fmt " &@ " in
     Format.fprintf fmt "%a" Format.(pp_print_list ~pp_sep constr) l
 
-and kscheme fmt { Typing.constr = c ; kvars ; args ; kind = k } =
+and kscheme fmt {T. constr = c ; kvars ; args ; kind = k } =
   let pp_sep fmt () = Format.fprintf fmt "," in
   let pp_arg fmt k = Format.fprintf fmt "%a ->@ " kind k in
   Format.pp_open_box fmt 2 ;
@@ -133,7 +133,7 @@ and kscheme fmt { Typing.constr = c ; kvars ; args ; kind = k } =
   Format.pp_close_box fmt ();
   ()
 
-and scheme fmt { Typing.constr = c ; tyvars ; kvars ; ty } =
+and scheme fmt {T. constr = c ; tyvars ; kvars ; ty } =
   let pp_sep fmt () = Format.fprintf fmt "," in
   let binding fmt (ty,k) =
     Format.fprintf fmt "(%a:%a)" (tyname ~unbound:false) ty kind k
@@ -160,8 +160,8 @@ let env fmt env =
       (fun fmt (k,ty) ->
          Format.fprintf fmt "%a: %a" pp_key k  pp_val ty)
       fmt
-    @@ NameMap.bindings e
+    @@ Name.Map.bindings e
   in
   Format.fprintf fmt "Vars:@;<1 2>@[<v>%a@]@.Types:@;<1 2>@[<v>%a@]@."
-    (print_env name scheme) env.Typing.Env.vars
-    (print_env (tyname ~unbound:false) kscheme) env.Typing.Env.types
+    (print_env name scheme) env.Env.vars
+    (print_env (tyname ~unbound:false) kscheme) env.Env.types
