@@ -214,9 +214,9 @@ module Unif = struct
     | (T.Var ({contents = Unbound(id, level)} as tvar) as ty1), (ty as ty2)
     | (ty as ty1), (T.Var ({contents = Unbound(id, level)} as tvar) as ty2) ->
       occurs_check_adjust_levels id level ty ;
-      tvar := Link ty ;
       let constr1, k1 = infer_kind ~env ~level ty1 in
       let constr2, k2 = infer_kind ~env ~level ty2 in
+      tvar := Link ty ;
       C.Solved.cand [constr1; constr2; Kind.constr k1 k2 ; Kind.constr k2 k1]
 
     | _, _ ->
