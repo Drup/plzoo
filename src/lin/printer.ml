@@ -107,14 +107,13 @@ and typ_with_paren fmt x =
   Format.fprintf fmt
     (if must_have_paren then "@[(%a@])" else "%a") typ x
 
-let rec constr fmt = function
-  | Constraint.True -> Format.fprintf fmt "true"
-  | Constraint.KindLeq (k1, k2) -> Format.fprintf fmt "(%a < %a)" kind k1 kind k2
-  | Constraint.And l ->
-    let pp_sep fmt () = Format.fprintf fmt " &@ " in
-    Format.fprintf fmt "%a" Format.(pp_print_list ~pp_sep constr) l
+let constr fmt (k1, k2) =
+  Format.fprintf fmt "(%a < %a)" kind k1 kind k2
+let constrs fmt l =
+  let pp_sep fmt () = Format.fprintf fmt " &@ " in
+  Format.fprintf fmt "%a" Format.(pp_print_list ~pp_sep constr) l
 
-and kscheme fmt {T. constr = c ; kvars ; args ; kind = k } =
+let kscheme fmt {T. constr = c ; kvars ; args ; kind = k } =
   let pp_sep fmt () = Format.fprintf fmt "," in
   let pp_arg fmt k = Format.fprintf fmt "%a ->@ " kind k in
   Format.pp_open_box fmt 2 ;
@@ -124,8 +123,8 @@ and kscheme fmt {T. constr = c ; kvars ; args ; kind = k } =
         Format.(pp_print_list ~pp_sep name) kvars
   end;
   begin
-    if c <> Constraint.True then
-      Format.fprintf fmt "%a =>" constr c
+    if c <> [] then
+      Format.fprintf fmt "%a =>" constrs c
   end;
   Format.fprintf fmt "%a%a"
     Format.(pp_print_list ~pp_sep pp_arg) args
@@ -146,8 +145,8 @@ and scheme fmt {T. constr = c ; tyvars ; kvars ; ty } =
         Format.(pp_print_list ~pp_sep binding) tyvars
   end;
   begin
-    if c <> Constraint.True then
-      Format.fprintf fmt "%a =>" constr c
+    if c <> [] then
+      Format.fprintf fmt "%a =>" constrs c
   end;
   typ fmt ty;
   Format.pp_close_box fmt ();

@@ -11,3 +11,4 @@ module M = struct
 end
 include M
 module Map = Map.Make(M)
+module Set = Set.Make(M)

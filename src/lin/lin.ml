@@ -50,7 +50,7 @@ module HM = Zoo.Main (struct
         let env = { env with ty = types } in
         Zoo.print_info "@[<2>%a@ : @[%a@]@ = @[%a@]@.%a@.%a@."
           Printer.name x  Printer.scheme scheme  Printer.value v
-          Printer.constr constr
+          Printer.constrs constr
           Printer.env env.ty ;
         add_def x scheme v env
   end)

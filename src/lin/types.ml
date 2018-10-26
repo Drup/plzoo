@@ -4,9 +4,9 @@ and kind =
   | Un
   | Lin
   | KGenericVar : Name.t -> kind
-  | KVar : kvar ref -> kind
+  | KVar : kuvar ref -> kind
 
-and kvar =
+and kuvar =
   | KUnbound of Name.t * level
   | KLink of kind
 
@@ -14,9 +14,9 @@ type typ =
   | App : Name.t * typ list -> typ
   | Arrow : typ * kind * typ -> typ
   | GenericVar : Name.t -> typ
-  | Var : var ref -> typ
+  | Var : uvar ref -> typ
 
-and var =
+and uvar =
   | Unbound of Name.t * level
   | Link of typ
 
@@ -26,21 +26,18 @@ type constr =
   | KindLeq of kind * kind
   | And of constr list
 
-type solved_constr = 
-  | True
-  | KindLeq of kind * kind
-  | And of solved_constr list
+type normalized_constr = (kind * kind) list
 
 type scheme = {
   kvars : Name.t list ;
   tyvars : (Name.t * kind) list ;
-  constr : solved_constr ;
+  constr : normalized_constr ;
   ty : typ ;
 }
 
 type kscheme = {
   kvars : Name.t list ;
-  constr : solved_constr ;
+  constr : normalized_constr ;
   args : kind list ;
   kind : kind ;
 }
@@ -54,8 +51,8 @@ let kind ~name level =
   n, KVar (ref (KUnbound(n, level)))
 let gen_var () = let n = Name.create () in n, GenericVar n
 
-let tyscheme ?(constr=(True : solved_constr)) ?(kvars=[]) ?(tyvars=[]) ty =
+let tyscheme ?(constr=[]) ?(kvars=[]) ?(tyvars=[]) ty =
   { constr ; kvars ; tyvars ; ty }
 
-let kscheme ?(constr=(True : solved_constr)) ?(kvars=[]) ?(args=[]) kind =
+let kscheme ?(constr=[]) ?(kvars=[]) ?(args=[]) kind =
   { constr ; kvars ; args ; kind }
