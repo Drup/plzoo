@@ -161,6 +161,12 @@ let env fmt env =
       fmt
     @@ Name.Map.bindings e
   in
-  Format.fprintf fmt "Vars:@;<1 2>@[<v>%a@]@.Types:@;<1 2>@[<v>%a@]@."
-    (print_env name scheme) env.Env.vars
-    (print_env (tyname ~unbound:false) kscheme) env.Env.types
+  let print_env prefix pp_key pp_val fmt e =
+    if Name.Map.is_empty e then () else
+      Format.fprintf fmt "%s:@;<1 2>@[<v>%a@]@."
+        prefix (print_env pp_key pp_val) e
+  in
+  Format.fprintf fmt "%a%a%a"
+    (print_env "Variables:" name scheme) env.Env.vars
+    (print_env "Type Constructors:" (tyname ~unbound:false) kscheme) env.Env.constr
+    (print_env "Type Variables:" (tyname ~unbound:false) kscheme) env.Env.types

@@ -91,6 +91,95 @@ end
 let instantiate = Instantiate.go
 
 
+(** Generalization *)
+module Generalize = struct
+
+  let rec gen_kind ~level ~kenv = function
+    | T.KVar {contents = KUnbound(id, other_level)} when other_level > level ->
+      kenv := Name.Set.add id !kenv ;
+      T.KGenericVar id
+    | T.KVar {contents = KLink ty} -> gen_kind ~level ~kenv ty
+    | ( T.KGenericVar _
+      | T.KVar {contents = KUnbound _}
+      | T.Un | T.Lin
+      ) as ty -> ty
+
+  let rec gen_ty ~env ~level ~tyenv ~kenv = function
+    | T.Var {contents = Unbound(id, other_level)} when other_level > level ->
+      tyenv := Name.Set.add id !tyenv ;
+      T.GenericVar id
+    | T.App(ty, ty_args) ->
+      App(ty, List.map (gen_ty ~env ~level ~tyenv ~kenv) ty_args)
+    | T.Arrow(param_ty, k, return_ty) ->
+      Arrow(gen_ty ~env ~level ~tyenv ~kenv param_ty,
+            gen_kind ~level ~kenv k,
+            gen_ty ~env ~level ~tyenv ~kenv return_ty)
+    | T.Var {contents = Link ty} -> gen_ty ~env ~level ~tyenv ~kenv ty
+    | ( T.GenericVar _
+      | T.Var {contents = Unbound _}
+      ) as ty -> ty
+  
+  let gen_kscheme ~level ~kenv = function
+    | {T. kvars = []; constr = []; args = [] ; kind } ->
+      gen_kind ~level ~kenv kind
+    | ksch ->
+      fail "Trying to generalize kinda %a. \
+            This kind has already been generalized."
+        Printer.kscheme ksch
+
+  let gen_kschemes ~env ~level ~kenv tyset = 
+    let get_kind (env : Env.t) id =
+      gen_kscheme ~level ~kenv (Env.find_ty id env)
+    in 
+    Name.Set.fold (fun ty l -> (ty, get_kind env ty)::l) tyset []
+
+  let rec gen_constraint ~level = function
+    | [] -> Normal.ctrue, Normal.ctrue
+    | (k1, k2) :: rest ->
+      let kenv = ref Name.Set.empty in
+      let k1 = gen_kind ~level ~kenv k1 in
+      let k2 = gen_kind ~level ~kenv k2 in
+      let constr = Normal.cleq k1 k2 in
+      let c1, c2 =
+        if Name.Set.is_empty !kenv
+        then constr, Normal.ctrue
+        else Normal.ctrue, constr
+      in
+      let no_vars, vars = gen_constraint ~level rest in
+      Normal.(c1 @ no_vars , c2 @ vars)
+
+  let collect_gen_vars ~kenv l =
+    let add_if_gen = function
+      | T.KGenericVar n -> kenv := Name.Set.add n !kenv
+      | _ -> ()
+    in
+    List.iter (fun (k1, k2) -> add_if_gen k1; add_if_gen k2) l
+
+  (** The real generalization function that is aware of the value restriction. *)
+  let go env level constr ty exp =
+    if Syntax.is_nonexpansive exp then
+      let tyenv = ref Name.Set.empty in
+      let kenv = ref Name.Set.empty in
+      
+      let ty = gen_ty ~env ~level ~tyenv ~kenv ty in
+      let tyvars = gen_kschemes ~env ~level ~kenv !tyenv in
+      
+      let constr_no_var, constr = gen_constraint ~level constr in
+      let constr = Normal.simplify_solved ~keep_vars:!kenv constr in
+      let constr_all = Normal.(constr_no_var @ constr) in
+
+      collect_gen_vars ~kenv constr ;
+      let kvars = Name.Set.elements !kenv in
+      let env = Name.Set.fold (fun ty env -> Env.rm_ty ty env) !tyenv env in
+
+      env, constr_all, T.tyscheme ~constr ~tyvars ~kvars ty
+    else
+      env, constr, T.tyscheme ty
+
+end
+let generalize = Generalize.go
+
+
 (** Unification *)
 module Kind = struct
 
@@ -186,7 +275,7 @@ let rec infer_kind ~level ~env = function
         ([], []) args
     in
     let constr', kind =
-      Instantiate.go_kind level ~args @@ Env.find_ty f env
+      Instantiate.go_kind level ~args @@ Env.find_constr f env
     in
     Normal.(constr' @ constrs), kind
   | T.Arrow (_, k, _) -> Normal.ctrue, k
@@ -279,94 +368,6 @@ let normalize_constr env l =
   loop @@ unify_all (T.And l)
 
 let normalize (env, constr, ty) = env, normalize_constr env [constr], ty
-
-(** Generalization *)
-module Generalize = struct
-
-  let rec gen_kind ~level ~kenv = function
-    | T.KVar {contents = KUnbound(id, other_level)} when other_level > level ->
-      kenv := Name.Set.add id !kenv ;
-      T.KGenericVar id
-    | T.KVar {contents = KLink ty} -> gen_kind ~level ~kenv ty
-    | ( T.KGenericVar _
-      | T.KVar {contents = KUnbound _}
-      | T.Un | T.Lin
-      ) as ty -> ty
-
-  let rec gen_ty ~env ~level ~tyenv ~kenv = function
-    | T.Var {contents = Unbound(id, other_level)} when other_level > level ->
-      tyenv := Name.Set.add id !tyenv ;
-      T.GenericVar id
-    | T.App(ty, ty_args) ->
-      App(ty, List.map (gen_ty ~env ~level ~tyenv ~kenv) ty_args)
-    | T.Arrow(param_ty, k, return_ty) ->
-      Arrow(gen_ty ~env ~level ~tyenv ~kenv param_ty,
-            gen_kind ~level ~kenv k,
-            gen_ty ~env ~level ~tyenv ~kenv return_ty)
-    | T.Var {contents = Link ty} -> gen_ty ~env ~level ~tyenv ~kenv ty
-    | ( T.GenericVar _
-      | T.Var {contents = Unbound _}
-      ) as ty -> ty
-  
-  let gen_kscheme ~level ~kenv = function
-    | {T. kvars = []; constr = []; args = [] ; kind } ->
-      gen_kind ~level ~kenv kind
-    | ksch ->
-      fail "Trying to generalize kinda %a. \
-            This kind has already been generalized."
-        Printer.kscheme ksch
-
-  let gen_kschemes ~env ~level ~kenv tyset = 
-    let get_kind (env : Env.t) id =
-      gen_kscheme ~level ~kenv (Env.find_ty id env)
-    in 
-    Name.Set.fold (fun ty l -> (ty, get_kind env ty)::l) tyset []
-
-  let rec gen_constraint ~level = function
-    | [] -> Normal.ctrue, Normal.ctrue
-    | (k1, k2) :: rest ->
-      let kenv = ref Name.Set.empty in
-      let k1 = gen_kind ~level ~kenv k1 in
-      let k2 = gen_kind ~level ~kenv k2 in
-      let constr = Normal.cleq k1 k2 in
-      let c1, c2 =
-        if Name.Set.is_empty !kenv
-        then constr, Normal.ctrue
-        else Normal.ctrue, constr
-      in
-      let no_vars, vars = gen_constraint ~level rest in
-      Normal.(c1 @ no_vars , c2 @ vars)
-
-  let collect_gen_vars ~kenv l =
-    let add_if_gen = function
-      | T.KGenericVar n -> kenv := Name.Set.add n !kenv
-      | _ -> ()
-    in
-    List.iter (fun (k1, k2) -> add_if_gen k1; add_if_gen k2) l
-
-  (** The real generalization function that is aware of the value restriction. *)
-  let go env level constr ty exp =
-    if Syntax.is_nonexpansive exp then
-      let tyenv = ref Name.Set.empty in
-      let kenv = ref Name.Set.empty in
-      
-      let ty = gen_ty ~env ~level ~tyenv ~kenv ty in
-      let tyvars = gen_kschemes ~env ~level ~kenv !tyenv in
-      
-      let constr_no_var, constr = gen_constraint ~level constr in
-      let constr = Normal.simplify_solved ~keep_vars:!kenv constr in
-      let constr_all = Normal.(constr_no_var @ constr) in
-
-      collect_gen_vars ~kenv constr ;
-      let kvars = Name.Set.elements !kenv in
-      let env = Name.Set.fold (fun ty env -> Env.rm_ty ty env) !tyenv env in
-
-      env, constr_all, T.tyscheme ~constr ~tyvars ~kvars ty
-    else
-      env, constr, T.tyscheme ty
-
-end
-let generalize = Generalize.go
   
 module Multiplicity = struct
   type t = (T.kind list) Name.Map.t
@@ -402,7 +403,6 @@ module Multiplicity = struct
 end
 
 
-  
 let constant_scheme = let open T in function
   | Int _ -> tyscheme Builtin.int
   | Plus  -> tyscheme Builtin.(int @-> int @-> int)
@@ -506,9 +506,21 @@ and infer_app (env : Env.t) level mults constr f_ty = function
     let mults = Multiplicity.union mults mults' in
     infer_app env level mults constr return_ty rest
 
-let infer_top env e =
-  let _, env, constr, ty = infer env 1 e in
+let infer_top env0 e =
+  let _, env, constr, ty = infer env0 1 e in
   let env, constr, scheme = generalize env 0 constr ty e in
-  let _ = normalize_constr env [C.denormal @@ Instantiate.constr 0 constr] in
+
+  (* Check that the residual constraints are satisfiable. *)
+  let constr = normalize_constr env [C.denormal @@ Instantiate.constr 0 constr] in
+
+  (* Remove unused variables in the environment *)
+  let free_vars =
+    Name.Map.fold
+      (fun _ sch e -> Name.Set.union e @@ T.free_vars_scheme sch)
+      env.vars
+      (T.free_vars_scheme scheme)
+  in
+  let env = Env.filter_ty (fun n _ -> Name.Set.mem n free_vars) env in
+  
   (* assert (constr = C.True) ; *)
   constr, env, scheme

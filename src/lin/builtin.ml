@@ -14,5 +14,5 @@ let ref x = App (ref_name, [x])
 
 let initial_env =
   Env.empty
-  |> Env.add_ty ref_name (kscheme ~args:[Un] Un)
-  |> Env.add_ty int_name (kscheme Un)
+  |> Env.add_constr ref_name (kscheme ~args:[Un] Un)
+  |> Env.add_constr int_name (kscheme Un)

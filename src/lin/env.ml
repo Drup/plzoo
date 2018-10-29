@@ -1,4 +1,3 @@
-open Types
 
 exception Var_not_found of Name.t
 exception Type_not_found of Name.t
@@ -6,11 +5,13 @@ exception Type_not_found of Name.t
 type ('a, 'b) env = {
   vars : 'a Name.Map.t ;
   types : 'b Name.Map.t ;
+  constr : 'b Name.Map.t ;
 }
-type t = (scheme, kscheme) env
+type t = (Types.scheme, Types.kscheme) env
 
-let add k v { vars ; types } = { types ; vars = Name.Map.add k v vars }
-let add_ty k v { vars ; types } = { vars ; types = Name.Map.add k v types }
+let add k v env = { env with vars = Name.Map.add k v env.vars }
+let add_ty k v env = { env with types = Name.Map.add k v env.types }
+let add_constr k v env = { env with constr = Name.Map.add k v env.constr }
 
 let find k env =
   try Name.Map.find k env.vars with
@@ -18,9 +19,17 @@ let find k env =
 let find_ty k env =
   try Name.Map.find k env.types with
     Not_found -> raise (Type_not_found k)
+let find_constr k env =
+  try Name.Map.find k env.constr with
+    Not_found -> raise (Type_not_found k)
 
-let rm k { vars ; types } = { types ; vars = Name.Map.remove k vars }
-let rm_ty k { vars ; types } = { vars ; types = Name.Map.remove k types }
+let rm k env = { env with vars = Name.Map.remove k env.vars }
+let rm_ty k env = { env with types = Name.Map.remove k env.types }
 
-let empty = { vars = Name.Map.empty ; types = Name.Map.empty }
+let empty = {
+  vars = Name.Map.empty ;
+  types = Name.Map.empty ;
+  constr = Name.Map.empty ;
+}
 
+let filter_ty f env = { env with types = Name.Map.filter f env.types }

@@ -56,3 +56,15 @@ let tyscheme ?(constr=[]) ?(kvars=[]) ?(tyvars=[]) ty =
 
 let kscheme ?(constr=[]) ?(kvars=[]) ?(args=[]) kind =
   { constr ; kvars ; args ; kind }
+
+
+let rec free_vars = function
+  | App (_, l) ->
+    List.fold_left (fun s e -> Name.Set.union s @@ free_vars e) Name.Set.empty l
+  | Arrow (ty1, _, ty2) -> Name.Set.union (free_vars ty1) (free_vars ty2)
+  | GenericVar n -> Name.Set.singleton n
+  | Var { contents = Link t } -> free_vars t
+  | Var { contents = Unbound (n, _) } -> Name.Set.singleton n
+
+let free_vars_scheme { tyvars ; ty ; _ } =
+  Name.Set.diff (free_vars ty) (Name.Set.of_list @@ List.map fst tyvars) 
