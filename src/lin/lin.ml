@@ -1,6 +1,6 @@
-module HM = Zoo.Main (struct
+module Lin = Zoo.Main (struct
 
-    let name = "HM"
+    let name = "Lin"
 
     type command = Syntax.command
 
@@ -55,4 +55,4 @@ module HM = Zoo.Main (struct
         add_def x scheme v env
   end)
 
-let () = HM.main ()
+let () = Lin.main ()
