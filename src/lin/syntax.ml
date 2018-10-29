@@ -19,13 +19,6 @@ and expr =
 type command =
   | Def of Name.t * expr
 
-let rec is_nonexpansive = function
-  | Var _
-  | V _ -> true
-  | Let (_, e1, e2) ->
-    is_nonexpansive e1 && is_nonexpansive e2
-  | _ -> false
-
 
 module Rename = struct
   module SMap = Map.Make(String)

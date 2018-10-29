@@ -7,6 +7,14 @@ module Normal = Constraint.Normal
 let fail fmt =
   Zoo.error ~kind:"Type error" fmt
 
+let rec is_nonexpansive = function
+  | V (Constant _)
+  | V (Lambda _)
+  | Var _ -> true
+  | Let (_, e1, e2) ->
+    is_nonexpansive e1 && is_nonexpansive e2
+  | _ -> false
+
 (** Instance *)
 module Instantiate = struct
 
@@ -157,7 +165,7 @@ module Generalize = struct
 
   (** The real generalization function that is aware of the value restriction. *)
   let go env level constr ty exp =
-    if Syntax.is_nonexpansive exp then
+    if is_nonexpansive exp then
       let tyenv = ref Name.Set.empty in
       let kenv = ref Name.Set.empty in
       
