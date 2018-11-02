@@ -10,13 +10,14 @@ type value =
   | Constant of constant
   | Lambda of Name.t * expr
   | Ref of value ref
-  | Constructor of Name.t
+  | Constructor of Name.t * value option
 
 and expr =
   | V of value
   | Var of Name.t
   | App of expr * expr list
   | Let of Name.t * expr * expr
+  | Match of Name.t * Name.t * expr * expr
 
 type decl = {
   name : Name.t ;
@@ -72,12 +73,21 @@ module Rename = struct
       let env = add name new_name env in
       let e = expr env e in
       Lambda (new_name, e)
-    | Constant _ | Ref _ | Constructor _ as e -> e
+    | Constructor ({name}, None) -> Constructor (find name env, None)
+    | Constructor ({name}, Some v) -> Constructor (find name env, Some (value env v))
+    | Constant _ | Ref _  as e -> e
 
   and expr env = function
     | V v -> V (value env v)
     | Var { name } -> Var (find name env)
     | App (f, l) -> App (expr env f, List.map (expr env) l)
+    | Match (constr, p, e1, e2) ->
+      let constr = find constr.name env in
+      let e1 = expr env e1 in
+      let new_p = Name.create ~name:p.name () in
+      let env = add p.name new_p env in
+      let e2 = expr env e2 in
+      Match (constr, new_p, e1, e2)
     | Let ({name}, e1, e2) ->
       let e1 = expr env e1 in
       let new_name = Name.create ~name () in

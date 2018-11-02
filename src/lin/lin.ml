@@ -16,6 +16,11 @@ module Lin = Zoo.Main (struct
       name = { env.name with env = Syntax.Rename.add x.name x env.name.env } ;
       value = Eval.add x v env.value ;
     }
+    let add_decl ty schm env = {
+      ty = Env.add_constr ty schm env.ty ;
+      name = { env.name with tyenv = Syntax.Rename.add ty.name ty env.name.tyenv } ;
+      value = env.value ;
+    }
     let initial_environment = {
       ty = Builtin.initial_env;
       name = Builtin.initial_rename_env;
@@ -64,7 +69,8 @@ module Lin = Zoo.Main (struct
           Printer.name constr_name
           Printer.scheme constr_decl ;        
         env
-        |> add_def constr_name constr_decl (Syntax.Constructor constr_name)
+        |> add_def constr_name constr_decl (Syntax.Constructor (constr_name, None))
+        |> add_decl ty_name ty_decl
   end)
 
 let () = Lin.main ()

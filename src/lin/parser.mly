@@ -44,6 +44,7 @@ expr:
   | f=simple_expr l=list_expr %prec FUNAPP
      { App (f,List.rev l) }
   | LET name=name EQUAL e1=expr IN e2=expr { Let (name, e1, e2) }
+  | LET constr=uname p=name EQUAL e1=expr IN e2=expr { Match (constr, p, e1, e2) }
 
 simple_expr:
   | v=value { V v }
@@ -57,7 +58,7 @@ list_expr:
 %inline value:
   | FUN name=name RIGHTARROW e=expr { Lambda (name, e) }
   | c=constant { Constant c }
-  | name=uname { Constructor name }
+  | name=uname { Constructor (name, None) }
 
 constant:
   | i=INT { Int i }

@@ -14,7 +14,8 @@ let find x env =
 (** Substitutions *)
 
 let rec subst_value x v = function
-  | Constructor c -> Constructor c
+  | Constructor (c, None) -> Constructor (c, None)
+  | Constructor (c, Some v') -> Constructor (c, Some (subst_value x v v'))
   | Constant c -> Constant c
   | Lambda (y,e) when not @@ Name.equal x y ->
     (Lambda (y, subst x v e))
@@ -30,8 +31,12 @@ and subst x v e = match e with
   | App (f,e) -> App (subst x v f, List.map (subst x v) e)
   | Let (y,e1,e2) when not @@ Name.equal x y ->
     Let (y, subst x v e1, subst x v e2)
+  | Match (constr, y,e1,e2) when not @@ Name.equal x y ->
+    Match (constr, y, subst x v e1, subst x v e2)
   | Let (y,e1,e2) ->
     Let (y, subst x v e1, e2)
+  | Match (constr, y, e1, e2) ->
+    Match (constr, y, subst x v e1, e2)
 
 let subst_env = Name.Map.fold subst
 
@@ -87,10 +92,18 @@ let rec eval i e = match e with
     let ve = List.map (eval @@ i+1) l in
     let v = eval_app (i+1) e vf ve in
     (* log_val i v ; *)
-    v   
+    v
+  | Match (constr, x, e1, e2) ->
+    let v = eval (i+1) e1 in
+    match v with
+    | Constructor (constr', Some param) when Name.equal constr constr' ->
+      eval (i+1) @@ subst x param e2
+    | _ -> reduction_failure e
 
 and eval_app i eorig f l = match f, l with
   | _, [] -> f
+  | Constructor (x, None), [param] -> Constructor (x, Some param)
+  | Constructor (_, _), _ -> reduction_failure eorig
   | Ref _, _ -> reduction_failure eorig
   | Lambda(x, body), (v :: t) ->
     eval_app i eorig (eval (i+1) @@ subst x v body) t

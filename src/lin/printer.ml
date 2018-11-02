@@ -28,12 +28,14 @@ let name fmt {Name. name ; id } =
 let tyname ?(unbound=false) fmt n =
   Format.fprintf fmt "'%s%a" (if unbound then "_" else "") name n
 let kname ?(unbound=false) fmt n =
-  Format.fprintf fmt "^%s%a" (if unbound then "_" else "") name n
+  Format.fprintf fmt "'%s%a" (if unbound then "_" else "") name n
 
 let rec value
   = fun fmt -> function
     | Constant c -> constant fmt c
-    | Constructor c -> name fmt c
+    | Constructor (c, None) -> name fmt c
+    | Constructor (c, Some v) ->
+      Format.fprintf fmt "@[<2>%a (%a)]" name c value v
     | Lambda (n,e) ->
       Format.fprintf fmt "@[<2>%a %a %a@ %a@]"
         bold "fun"
@@ -53,6 +55,11 @@ and expr
     | Let (n,e1,e2) ->
       Format.fprintf fmt "@[@[<2>%a %a %a@ %a@]@ %a@ %a@]"
         bold "let" name n
+        bold "=" expr e1
+        bold "in" expr e2
+    | Match (constr,n,e1,e2) ->
+      Format.fprintf fmt "@[@[<2>%a %a %a %a@ %a@]@ %a@ %a@]"
+        bold "let" name constr name n
         bold "=" expr e1
         bold "in" expr e2
 
@@ -168,5 +175,5 @@ let env fmt env =
   in
   Format.fprintf fmt "%a%a%a"
     (print_env "Variables:" name scheme) env.Env.vars
-    (print_env "Type Constructors:" (tyname ~unbound:false) kscheme) env.Env.constr
+    (print_env "Type Constructors:" name kscheme) env.Env.constr
     (print_env "Type Variables:" (tyname ~unbound:false) kscheme) env.Env.types
