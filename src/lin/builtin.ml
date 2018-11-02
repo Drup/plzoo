@@ -16,3 +16,12 @@ let initial_env =
   Env.empty
   |> Env.add_constr ref_name (kscheme ~args:[Un] Un)
   |> Env.add_constr int_name (kscheme Un)
+
+let initial_rename_env = Syntax.Rename.{
+    env = SMap.empty ;
+    tyenv = SMap.(
+        empty
+        |> add "int" int_name
+        |> add "ref" ref_name
+      )
+  }

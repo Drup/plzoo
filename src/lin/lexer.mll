@@ -16,8 +16,21 @@ rule token = parse
   | "!" { BANG }
   | ":=" { COLONEQUAL }
   | "->" { RIGHTARROW }
+  | "-{" { DASHLACCO }
+  | "<" { LESS }
+  | ">" { GREATER }
+  | "}>" { RACCOGREATER }
   | '('	{ LPAREN }
   | ')'	{ RPAREN }
-  | [ 'A'-'Z' 'a'-'z' '0'-'9' '_' '\'' ]+ as s  { IDENT s }
+  | "type" { TYPE }
+  | "=>" { BIGRIGHTARROW }
+  | "of" { OF }
+  | "'" ([ 'A'-'Z' 'a'-'z' '0'-'9' '_' '\'' ]+ as s)  { TYIDENT s }
+  | ([ 'a'-'z' ] [ 'A'-'Z' 'a'-'z' '0'-'9' '_' '\'' ]*) as s  { IDENT s }
+  | ([ 'A'-'Z' ] [ 'A'-'Z' 'a'-'z' '0'-'9' '_' '\'' ]*) as s  { UIDENT s }
   | eof	{ EOF }
+  | ":" { DOUBLECOLON }
+  | "," { COMMA }
+  | "un" { UN }
+  | "lin" { LIN }
   | ";;"	{ SEMISEMI }

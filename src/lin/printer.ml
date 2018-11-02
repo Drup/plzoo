@@ -33,6 +33,7 @@ let kname ?(unbound=false) fmt n =
 let rec value
   = fun fmt -> function
     | Constant c -> constant fmt c
+    | Constructor c -> name fmt c
     | Lambda (n,e) ->
       Format.fprintf fmt "@[<2>%a %a %a@ %a@]"
         bold "fun"
@@ -115,7 +116,7 @@ let constrs fmt l =
 
 let kscheme fmt {T. constr = c ; kvars ; args ; kind = k } =
   let pp_sep fmt () = Format.fprintf fmt "," in
-  let pp_arg fmt k = Format.fprintf fmt "%a ->@ " kind k in
+  let pp_arrow fmt () = Format.fprintf fmt "@ ->@ " in
   Format.pp_open_box fmt 2 ;
   begin
     if kvars <> [] then
@@ -124,11 +125,10 @@ let kscheme fmt {T. constr = c ; kvars ; args ; kind = k } =
   end;
   begin
     if c <> [] then
-      Format.fprintf fmt "%a =>" constrs c
+      Format.fprintf fmt "%a =>@ " constrs c
   end;
-  Format.fprintf fmt "%a%a"
-    Format.(pp_print_list ~pp_sep pp_arg) args
-    kind k ;
+  Format.fprintf fmt "%a"
+    Format.(pp_print_list ~pp_sep:pp_arrow kind) (args@[k]);
   Format.pp_close_box fmt ();
   ()
 
@@ -146,7 +146,7 @@ and scheme fmt {T. constr = c ; tyvars ; kvars ; ty } =
   end;
   begin
     if c <> [] then
-      Format.fprintf fmt "%a =>" constrs c
+      Format.fprintf fmt "%a =>@ " constrs c
   end;
   typ fmt ty;
   Format.pp_close_box fmt ();

@@ -14,6 +14,7 @@ let find x env =
 (** Substitutions *)
 
 let rec subst_value x v = function
+  | Constructor c -> Constructor c
   | Constant c -> Constant c
   | Lambda (y,e) when not @@ Name.equal x y ->
     (Lambda (y, subst x v e))

@@ -58,13 +58,18 @@ module Instantiate = struct
     List.map (fun (k1,k2) -> (f k1, f k2)) l
 
   let kind_scheme ~level ~kargs ~ktbl {T. kvars; constr; args; kind } =
-    let constr = instance_constr ~level ~ktbl constr in
+    let kl = List.length kargs and l = List.length args in
+    if kl <> l then
+      fail
+        "This type constructor is applied to %i types \
+         but has only %i parameters." l kl;
     let constr = 
       List.fold_left2 (fun l k1 k2 -> (k1, k2) :: l)
         constr
         kargs
         args
     in
+    let constr = instance_constr ~level ~ktbl constr in
     let kind = instance_kind ~level ~ktbl kind in
     assert (List.for_all (Hashtbl.mem ktbl) kvars) ;
     (constr, kind)
@@ -162,25 +167,28 @@ module Generalize = struct
       | _ -> ()
     in
     List.iter (fun (k1, k2) -> add_if_gen k1; add_if_gen k2) l
+    
+  let typ ~env ~level constr ty = 
+    let tyenv = ref Name.Set.empty in
+    let kenv = ref Name.Set.empty in
 
+    let ty = gen_ty ~env ~level ~tyenv ~kenv ty in
+    let tyvars = gen_kschemes ~env ~level ~kenv !tyenv in
+
+    let constr_no_var, constr = gen_constraint ~level constr in
+    let constr = Normal.simplify_solved ~keep_vars:!kenv constr in
+    let constr_all = Normal.(constr_no_var @ constr) in
+
+    collect_gen_vars ~kenv constr ;
+    let kvars = Name.Set.elements !kenv in
+    let env = Name.Set.fold (fun ty env -> Env.rm_ty ty env) !tyenv env in
+
+    env, constr_all, T.tyscheme ~constr ~tyvars ~kvars ty
+  
   (** The real generalization function that is aware of the value restriction. *)
   let go env level constr ty exp =
     if is_nonexpansive exp then
-      let tyenv = ref Name.Set.empty in
-      let kenv = ref Name.Set.empty in
-      
-      let ty = gen_ty ~env ~level ~tyenv ~kenv ty in
-      let tyvars = gen_kschemes ~env ~level ~kenv !tyenv in
-      
-      let constr_no_var, constr = gen_constraint ~level constr in
-      let constr = Normal.simplify_solved ~keep_vars:!kenv constr in
-      let constr_all = Normal.(constr_no_var @ constr) in
-
-      collect_gen_vars ~kenv constr ;
-      let kvars = Name.Set.elements !kenv in
-      let env = Name.Set.fold (fun ty env -> Env.rm_ty ty env) !tyenv env in
-
-      env, constr_all, T.tyscheme ~constr ~tyvars ~kvars ty
+      typ ~env ~level constr ty
     else
       env, constr, T.tyscheme ty
 
@@ -265,7 +273,7 @@ module Kind = struct
 
     | _, T.KGenericVar _ | T.KGenericVar _, _ ->
       (* Should always have been instantiated before *)
-      assert false
+      Normal.cleq k1 k2
   
     | T.KVar {contents = KUnbound _}, T.KVar {contents = KUnbound _} ->
       Normal.cleq k1 k2
@@ -276,11 +284,11 @@ end
 let rec infer_kind ~level ~env = function
   | T.App (f, args) ->
     let constrs, args =
-      List.fold_left
-        (fun (constrs, args) ty ->
+      List.fold_right
+        (fun ty (constrs, args) ->
            let constr, k = infer_kind ~level ~env ty in
            Normal.(constr @ constrs) , k::args)
-        ([], []) args
+        args ([], [])
     in
     let constr', kind =
       Instantiate.go_kind level ~args @@ Env.find_constr f env
@@ -466,6 +474,12 @@ let rec infer_value (env : Env.t) level = function
   | Ref v ->
     let mults, env, constr, ty = infer_value env level !v in
     mults, env, constr, (Builtin.ref ty)
+  | Constructor name -> 
+    let env, constr1, t = instantiate level env @@ Env.find name env in
+    let constr2, k = infer_kind ~level ~env t in
+    assert (k = Un) ;
+    let constr = normalize_constr env [C.denormal constr1; C.denormal constr2] in
+    Multiplicity.empty, env, constr, t
 
 and infer (env : Env.t) level = function
   | V v ->
